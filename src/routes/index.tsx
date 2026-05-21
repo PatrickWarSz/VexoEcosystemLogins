@@ -65,7 +65,7 @@ const THEMES: Record<AppKey, {
 
 function AuthPage() {
   const { app } = Route.useSearch();
-  const theme = THEMES[app];
+  const theme = THEMES[app as AppKey];
 
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
