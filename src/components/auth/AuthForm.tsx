@@ -282,7 +282,6 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
             <Sparkles className="w-3 h-3" />
             {theme.name}
           </span>
-          <SwitcherLinks current={currentApp} />
         </div>
 
         <h2 className="text-3xl font-semibold tracking-tight text-neutral-900">
@@ -583,30 +582,6 @@ function Field({
           {hint}
         </p>
       )}
-    </div>
-  );
-}
-
-function SwitcherLinks({ current }: { current: AppKey }) {
-  const items: { key: AppKey; label: string }[] = [
-    { key: "hub", label: "Hub" },
-    { key: "estoque", label: "Estoque" },
-    { key: "devolucoes", label: "Devoluções" },
-  ];
-  return (
-    <div className="flex items-center gap-1 text-xs text-neutral-400">
-      {items                            
-        .filter((i) => i.key !== current)
-        .map((i) => (
-          <Link
-            key={i.key}
-            to="/"
-            search={{ app: i.key }}
-            className="px-2 py-1 rounded hover:bg-neutral-100 hover:text-neutral-700 transition-colors"
-          >
-            {i.label}
-          </Link>
-        ))}
     </div>
   );
 }

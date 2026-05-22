@@ -7,8 +7,18 @@ import { DevolucoesPanel } from "@/components/auth/DevolucoesPanel";
 import { AuthForm } from "@/components/auth/AuthForm";
 import type { AppKey } from "@/components/auth/theme";
 
+function detectAppFromHost(): AppKey {
+  const host = window.location.hostname;
+  if (host.includes("estoque")) return "estoque";
+  if (host.includes("devolucoes")) return "devolucoes";
+  return "hub"; // auth.vexodev.com.br ou localhost → hub
+}
+
 const searchSchema = z.object({
-  app: fallback(z.enum(["hub", "estoque", "devolucoes"]), "hub").default("hub"),
+  app: fallback(
+    z.enum(["hub", "estoque", "devolucoes"]),
+    detectAppFromHost()
+  ).default(detectAppFromHost()),
 });
 
 export const Route = createFileRoute("/")({
