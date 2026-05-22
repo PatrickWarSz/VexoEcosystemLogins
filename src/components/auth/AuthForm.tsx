@@ -1,4 +1,3 @@
-import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   Eye,
@@ -6,11 +5,14 @@ import {
   Mail,
   Lock,
   ArrowRight,
-  Sparkles,
   Building2,
   FileText,
   User,
   Phone,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  ShieldCheck,
 } from "lucide-react";
 import { THEMES, type AppKey } from "./theme";
 
@@ -58,6 +60,44 @@ function isValidDocument(doc: string): boolean {
   return false;
 }
 
+// Máscaras visuais (não alteram a lógica de validação — sempre limpamos com /\D/g)
+function maskDocument(value: string): string {
+  const d = value.replace(/\D/g, "").slice(0, 14);
+  if (d.length <= 11) {
+    // CPF: 000.000.000-00
+    return d
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+  }
+  // CNPJ: 00.000.000/0000-00
+  return d
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2");
+}
+
+function maskCpf(value: string): string {
+  const d = value.replace(/\D/g, "").slice(0, 11);
+  return d
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+}
+
+function maskPhone(value: string): string {
+  const d = value.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 10) {
+    return d
+      .replace(/(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{4})(\d)/, "$1-$2");
+  }
+  return d
+    .replace(/(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{5})(\d)/, "$1-$2");
+}
+
 // URL do produto para redirect após login/cadastro
 const PRODUCT_URLS: Record<AppKey, string> = {
   hub: "https://vexodev.com.br",
@@ -77,7 +117,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  // Campos extras de cadastro (espelho do LoginPage.tsx do Estoque)
+  // Campos extras de cadastro
   const [companyName, setCompanyName] = useState("");
   const [documentId, setDocumentId] = useState("");
   const [ownerCpf, setOwnerCpf] = useState("");
@@ -112,7 +152,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
     return Object.keys(next).length === 0;
   };
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
+  // ── Handlers (lógica de backend inalterada) ────────────────────────────────
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,14 +160,12 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
     if (!validateLogin()) return;
     setLoading(true);
     try {
-      // Importação dinâmica do Supabase — mesmo client do Estoque
       const { createClient } = await import("@supabase/supabase-js");
       const supabase = createClient(
         import.meta.env.VITE_SUPABASE_URL as string,
         import.meta.env.VITE_SUPABASE_ANON_KEY as string,
       );
 
-      // Busca o usuário pelo username/email para determinar tipo
       const { data: user, error: dbErr } = await supabase
         .from("usuarios")
         .select("*, workspaces(cnpj_cpf, status_assinatura, data_vencimento)")
@@ -154,7 +192,6 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
         return;
       }
 
-      // Redirect para o produto correto
       window.location.href = PRODUCT_URLS[currentApp] + "/app/estoque";
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro inesperado";
@@ -179,11 +216,9 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
       const cleanCpf = ownerCpf ? ownerCpf.replace(/\D/g, "") : cleanDoc;
       const u = email.trim().toLowerCase();
 
-      // Trial de 15 dias — espelho exato do setupAdmin() do auth-store.ts
       const trialEndDate = new Date();
       trialEndDate.setDate(trialEndDate.getDate() + 15);
 
-      // 1. Cria workspace
       const { data: workspace, error: wErr } = await supabase
         .from("workspaces")
         .insert([
@@ -201,7 +236,6 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
 
       if (wErr) throw new Error(wErr.message);
 
-      // 2. Cria conta no Supabase Auth
       const { data: authData, error: authErr } = await supabase.auth.signUp({
         email: u,
         password,
@@ -209,7 +243,6 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
 
       if (authErr) throw new Error(authErr.message);
 
-      // 3. Insere registro de usuário
       const { error: uErr } = await supabase.from("usuarios").insert([
         {
           id: authData.user?.id,
@@ -233,7 +266,6 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
 
       if (uErr) throw new Error(uErr.message);
 
-      // 4. Cria cliente Asaas (Edge Function — não-crítico)
       try {
         const {
           data: { session },
@@ -249,15 +281,12 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
           headers: { Authorization: `Bearer ${session?.access_token}` },
         });
       } catch (err) {
-        // Não-crítico: log sem bloquear o fluxo
         console.warn("[asaas-customer] erro não-crítico:", err);
       }
 
-      // 5. Cadastro OK → avisa e muda para login
       setMode("login");
       setPassword("");
       setGlobalError(null);
-      // Pequena mensagem de sucesso via estado local
       setErrors({ _success: "Empresa criada! Faça login para continuar." });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro ao criar empresa";
@@ -268,33 +297,44 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
   };
 
   const handleSubmit = mode === "login" ? handleLogin : handleSignup;
+  const docDigits = documentId.replace(/\D/g, "");
+  const docValid = docDigits.length >= 11 && isValidDocument(documentId);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex-1 flex items-center justify-center px-6 py-12 sm:px-12 bg-white">
-      <div className="w-full max-w-md">
-        {/* Badge do produto + switcher */}
-        <div className="flex items-center gap-2 mb-8">
-          <span
-            className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border ${theme.badgeClass}`}
-          >
-            <Sparkles className="w-3 h-3" />
-            {theme.name}
-          </span>
+    <div className="flex-1 flex items-center justify-center px-6 py-10 sm:px-12 lg:px-16 bg-white">
+      <div className="w-full max-w-[420px]">
+        {/* Cabeçalho — produto */}
+        <div className="mb-10">
+          <div className="flex items-center gap-2.5 mb-7">
+            <div className="w-9 h-9 rounded-xl bg-neutral-900 flex items-center justify-center shadow-sm">
+              <span className="text-white text-[13px] font-semibold tracking-tight">V</span>
+            </div>
+            <span
+              className={`inline-flex items-center text-[11px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-md border ${theme.badgeClass}`}
+            >
+              {theme.name}
+            </span>
+          </div>
+
+          <h2 className="text-[28px] leading-tight font-semibold tracking-tight text-neutral-900">
+            {mode === "login" ? "Bem-vindo de volta" : "Crie seu Workspace"}
+          </h2>
+          <p className="mt-2 text-[14px] text-neutral-500 leading-relaxed">
+            {mode === "login"
+              ? "Acesse sua conta corporativa para continuar."
+              : "15 dias grátis. Sem cartão de crédito."}
+          </p>
         </div>
 
-        <h2 className="text-3xl font-semibold tracking-tight text-neutral-900">
-          {mode === "login" ? "Acesse sua conta" : "Crie sua conta"}
-        </h2>
-        <p className="mt-2 text-sm text-neutral-500">
-          {mode === "login"
-            ? "Entre com seu e-mail corporativo para continuar."
-            : "Inicie seu Workspace profissional. Sem cartão de crédito."}
-        </p>
-
-        {/* Toggle login / cadastro */}
-        <div className="mt-8 inline-flex p-1 bg-neutral-100 rounded-lg">
+        {/* Toggle login / cadastro — segmented control refinado */}
+        <div className="relative grid grid-cols-2 p-1 bg-neutral-100/80 rounded-xl mb-7">
+          <span
+            className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-lg bg-white shadow-sm ring-1 ring-neutral-200/60 transition-transform duration-200 ease-out ${
+              mode === "signup" ? "translate-x-[calc(100%+4px)]" : "translate-x-0"
+            }`}
+          />
           {(["login", "signup"] as const).map((m) => (
             <button
               key={m}
@@ -304,10 +344,8 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
                 setErrors({});
                 setGlobalError(null);
               }}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-                mode === m
-                  ? "bg-white text-neutral-900 shadow-sm"
-                  : "text-neutral-500 hover:text-neutral-700"
+              className={`relative z-10 py-2 text-[13px] font-medium rounded-lg transition-colors ${
+                mode === m ? "text-neutral-900" : "text-neutral-500 hover:text-neutral-700"
               }`}
             >
               {m === "login" ? "Entrar" : "Cadastrar"}
@@ -315,28 +353,29 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
           ))}
         </div>
 
-        {/* Mensagem de sucesso após cadastro */}
+        {/* Mensagens de estado */}
         {errors._success && (
-          <p className="mt-4 text-sm font-medium text-green-600 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-            {errors._success}
-          </p>
+          <div className="mb-5 flex items-start gap-2.5 text-[13px] text-emerald-700 bg-emerald-50 border border-emerald-200/70 rounded-lg px-3.5 py-2.5">
+            <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <span className="leading-relaxed">{errors._success}</span>
+          </div>
         )}
-
-        {/* Erro global */}
         {globalError && (
-          <p className="mt-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-            {globalError}
-          </p>
+          <div className="mb-5 flex items-start gap-2.5 text-[13px] text-red-700 bg-red-50 border border-red-200/70 rounded-lg px-3.5 py-2.5">
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <span className="leading-relaxed">{globalError}</span>
+          </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
-          {/* ── Campos exclusivos de CADASTRO ───────────────────────────────── */}
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          {/* Campos exclusivos de CADASTRO */}
           {mode === "signup" && (
             <>
-              {/* Nome da Empresa */}
+              <SectionLabel>Empresa</SectionLabel>
+
               <Field
-                label="Nome da Empresa / Marca"
-                icon={<Building2 className="w-4 h-4" />}
+                label="Nome da empresa"
+                icon={<Building2 className="w-[15px] h-[15px]" />}
                 error={errors.companyName}
                 ringClass={theme.ringClass}
               >
@@ -346,85 +385,78 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Ex: Delicatta Fit Store"
-                  className="w-full bg-transparent outline-none text-sm text-neutral-900 placeholder:text-neutral-400"
+                  className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400"
                   autoFocus
                 />
               </Field>
 
-              {/* CNPJ / CPF */}
               <Field
-                label="CNPJ da Empresa (ou seu CPF)"
-                icon={<FileText className="w-4 h-4" />}
+                label="CNPJ ou CPF"
+                icon={<FileText className="w-[15px] h-[15px]" />}
                 error={errors.documentId}
                 ringClass={theme.ringClass}
                 hint={
-                  documentId.replace(/\D/g, "").length >= 11
-                    ? isValidDocument(documentId)
-                      ? "✓ Documento válido"
-                      : "✗ Documento inválido"
+                  docDigits.length >= 11
+                    ? docValid
+                      ? "Documento válido"
+                      : "Documento inválido"
                     : undefined
                 }
-                hintValid={isValidDocument(documentId)}
+                hintValid={docValid}
               >
                 <input
                   type="text"
                   inputMode="numeric"
-                  value={documentId}
+                  value={maskDocument(documentId)}
                   onChange={(e) =>
                     setDocumentId(e.target.value.replace(/\D/g, "").slice(0, 14))
                   }
-                  placeholder="Apenas números (CPF ou CNPJ)"
-                  className="w-full bg-transparent outline-none text-sm text-neutral-900 placeholder:text-neutral-400"
+                  placeholder="00.000.000/0000-00"
+                  className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400 tabular-nums"
                 />
               </Field>
 
-              {/* CPF Titular */}
               <Field
-                label="CPF do Titular Responsável"
-                icon={<User className="w-4 h-4" />}
+                label="CPF do titular responsável"
+                icon={<User className="w-[15px] h-[15px]" />}
                 error={errors.ownerCpf}
                 ringClass={theme.ringClass}
               >
                 <input
                   type="text"
                   inputMode="numeric"
-                  value={ownerCpf}
+                  value={maskCpf(ownerCpf)}
                   onChange={(e) =>
                     setOwnerCpf(e.target.value.replace(/\D/g, "").slice(0, 11))
                   }
-                  placeholder="Apenas números"
-                  className="w-full bg-transparent outline-none text-sm text-neutral-900 placeholder:text-neutral-400"
+                  placeholder="000.000.000-00"
+                  className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400 tabular-nums"
                 />
               </Field>
 
-              {/* WhatsApp / Telefone */}
               <Field
-                label="WhatsApp / Celular do Financeiro"
-                icon={<Phone className="w-4 h-4" />}
+                label="WhatsApp do financeiro"
+                icon={<Phone className="w-[15px] h-[15px]" />}
                 error={errors.phone}
                 ringClass={theme.ringClass}
               >
                 <input
                   type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  value={maskPhone(phone)}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
                   placeholder="(11) 99999-9999"
-                  className="w-full bg-transparent outline-none text-sm text-neutral-900 placeholder:text-neutral-400"
+                  className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400 tabular-nums"
                 />
               </Field>
+
+              <SectionLabel className="pt-2">Conta de acesso</SectionLabel>
             </>
           )}
 
-          {/* ── Campos comuns ────────────────────────────────────────────────── */}
-
           {/* E-mail */}
           <Field
-            label={
-              mode === "signup"
-                ? "E-mail Profissional (Para Login e Faturas)"
-                : "E-mail"
-            }
-            icon={<Mail className="w-4 h-4" />}
+            label={mode === "signup" ? "E-mail profissional" : "E-mail"}
+            icon={<Mail className="w-[15px] h-[15px]" />}
             error={errors.email}
             ringClass={theme.ringClass}
           >
@@ -436,27 +468,28 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
               placeholder={
                 mode === "signup" ? "contato@suaempresa.com" : "voce@empresa.com"
               }
-              className="w-full bg-transparent outline-none text-sm text-neutral-900 placeholder:text-neutral-400"
+              className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400"
             />
           </Field>
 
           {/* Senha */}
           <Field
             label="Senha"
-            icon={<Lock className="w-4 h-4" />}
+            icon={<Lock className="w-[15px] h-[15px]" />}
             error={errors.password}
             ringClass={theme.ringClass}
             trailing={
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="text-neutral-400 hover:text-neutral-700 transition-colors"
-                aria-label="Mostrar senha"
+                className="text-neutral-400 hover:text-neutral-700 transition-colors p-0.5"
+                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                tabIndex={-1}
               >
                 {showPassword ? (
-                  <EyeOff className="w-4 h-4" />
+                  <EyeOff className="w-[15px] h-[15px]" />
                 ) : (
-                  <Eye className="w-4 h-4" />
+                  <Eye className="w-[15px] h-[15px]" />
                 )}
               </button>
             }
@@ -467,20 +500,23 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full bg-transparent outline-none text-sm text-neutral-900 placeholder:text-neutral-400"
+              className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400 tracking-wider"
             />
           </Field>
 
           {/* Lembrar-me / Esqueci senha (só no login) */}
           {mode === "login" && (
-            <div className="flex items-center justify-between text-sm">
-              <label className="inline-flex items-center gap-2 text-neutral-600 cursor-pointer">
-                <input type="checkbox" className="rounded border-neutral-300" />
+            <div className="flex items-center justify-between text-[13px] pt-1">
+              <label className="inline-flex items-center gap-2 text-neutral-600 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  className="w-3.5 h-3.5 rounded border-neutral-300 text-neutral-900 focus:ring-1 focus:ring-neutral-400 focus:ring-offset-0"
+                />
                 Lembrar-me
               </label>
               <button
                 type="button"
-                className={`font-medium ${theme.linkClass}`}
+                className={`font-medium transition-colors ${theme.linkClass}`}
                 onClick={async () => {
                   if (!email.trim() || !email.includes("@")) {
                     setErrors({ email: "Digite seu e-mail para recuperar a senha" });
@@ -512,27 +548,39 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-all shadow-sm hover:shadow disabled:opacity-60 disabled:cursor-not-allowed ${theme.buttonClass}`}
+            className={`mt-2 w-full inline-flex items-center justify-center gap-2 px-4 h-11 rounded-xl text-[14px] font-medium tracking-tight transition-all shadow-sm hover:shadow-md active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 ${theme.buttonClass}`}
           >
-            {loading
-              ? "Processando…"
-              : mode === "login"
-                ? "Entrar"
-                : "Criar Empresa na VEXO"}
-            {!loading && <ArrowRight className="w-4 h-4" />}
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Processando…
+              </>
+            ) : (
+              <>
+                {mode === "login" ? "Entrar" : "Criar Workspace"}
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
 
-          <p className="text-xs text-neutral-400 text-center pt-2">
-            Ao continuar, você concorda com nossos{" "}
-            <a href="#" className="underline hover:text-neutral-600">
-              Termos
-            </a>{" "}
-            e{" "}
-            <a href="#" className="underline hover:text-neutral-600">
-              Política de Privacidade
-            </a>
-            .
-          </p>
+          {/* Footer */}
+          <div className="pt-4 space-y-3">
+            <div className="flex items-center justify-center gap-1.5 text-[11px] text-neutral-400">
+              <ShieldCheck className="w-3 h-3" />
+              <span>Conexão criptografada · SSL 256-bit</span>
+            </div>
+            <p className="text-[11px] text-neutral-400 text-center leading-relaxed">
+              Ao continuar, você concorda com nossos{" "}
+              <a href="#" className="underline-offset-2 hover:underline hover:text-neutral-600">
+                Termos
+              </a>{" "}
+              e{" "}
+              <a href="#" className="underline-offset-2 hover:underline hover:text-neutral-600">
+                Política de Privacidade
+              </a>
+              .
+            </p>
+          </div>
         </form>
       </div>
     </div>
@@ -540,6 +588,23 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
 }
 
 // ─── Sub-componentes ──────────────────────────────────────────────────────────
+
+function SectionLabel({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`flex items-center gap-3 ${className}`}>
+      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-neutral-400">
+        {children}
+      </span>
+      <div className="flex-1 h-px bg-neutral-100" />
+    </div>
+  );
+}
 
 function Field({
   label,
@@ -562,23 +627,43 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-neutral-700 mb-1.5">
+      <label className="block text-[12px] font-medium text-neutral-700 mb-1.5">
         {label}
       </label>
       <div
-        className={`flex items-center gap-2.5 px-3.5 py-3 rounded-lg border bg-white transition-all ${
+        className={`group flex items-center gap-2.5 px-3.5 h-11 rounded-xl border bg-white transition-all ${
           error
-            ? "border-red-400 ring-2 ring-red-100"
-            : `border-neutral-200 focus-within:ring-2 ${ringClass}`
+            ? "border-red-300 ring-2 ring-red-100"
+            : `border-neutral-200 hover:border-neutral-300 focus-within:ring-2 focus-within:border-transparent ${ringClass}`
         }`}
       >
-        <span className={error ? "text-red-500" : "text-neutral-400"}>{icon}</span>
+        <span
+          className={`flex-shrink-0 transition-colors ${
+            error ? "text-red-400" : "text-neutral-400 group-focus-within:text-neutral-600"
+          }`}
+        >
+          {icon}
+        </span>
         {children}
-        {trailing}
+        {trailing && <span className="flex-shrink-0">{trailing}</span>}
       </div>
-      {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
+      {error && (
+        <p className="mt-1.5 text-[12px] text-red-600 flex items-center gap-1">
+          <AlertCircle className="w-3 h-3" />
+          {error}
+        </p>
+      )}
       {hint && !error && (
-        <p className={`mt-1.5 text-xs ${hintValid ? "text-green-600" : "text-red-500"}`}>
+        <p
+          className={`mt-1.5 text-[12px] flex items-center gap-1 ${
+            hintValid ? "text-emerald-600" : "text-red-500"
+          }`}
+        >
+          {hintValid ? (
+            <CheckCircle2 className="w-3 h-3" />
+          ) : (
+            <AlertCircle className="w-3 h-3" />
+          )}
           {hint}
         </p>
       )}
