@@ -16,8 +16,7 @@ import {
 } from "lucide-react";
 import { THEMES, type AppKey } from "./theme";
 
-// ─── PADRÃO OFICIAL: Adaptador de Cookies ─────────────────────────────────────
-// Colocamos aqui em cima uma única vez para não poluir o código abaixo
+// ─── ADAPTADOR DE COOKIES (COMPARTILHAMENTO DE SESSÃO) ────────────────────────
 const cookieStorage = {
   getItem: (key: string) => {
     if (typeof document === 'undefined') return null;
@@ -26,6 +25,7 @@ const cookieStorage = {
   },
   setItem: (key: string, value: string) => {
     if (typeof document === 'undefined') return;
+    // Salva no domínio base para que o estoque.vexodev.com.br possa ler
     document.cookie = `${key}=${encodeURIComponent(value)}; domain=.vexodev.com.br; path=/; max-age=31536000; SameSite=Lax; secure`;
   },
   removeItem: (key: string) => {
@@ -78,17 +78,14 @@ function isValidDocument(doc: string): boolean {
   return false;
 }
 
-// Máscaras visuais (não alteram a lógica de validação — sempre limpamos com /\D/g)
 function maskDocument(value: string): string {
   const d = value.replace(/\D/g, "").slice(0, 14);
   if (d.length <= 11) {
-    // CPF: 000.000.000-00
     return d
       .replace(/(\d{3})(\d)/, "$1.$2")
       .replace(/(\d{3})(\d)/, "$1.$2")
       .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
   }
-  // CNPJ: 00.000.000/0000-00
   return d
     .replace(/^(\d{2})(\d)/, "$1.$2")
     .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
@@ -96,6 +93,7 @@ function maskDocument(value: string): string {
     .replace(/(\d{4})(\d)/, "$1-$2");
 }
 
+// Máscaras visuais
 function maskCpf(value: string): string {
   const d = value.replace(/\D/g, "").slice(0, 11);
   return d
@@ -170,7 +168,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
     return Object.keys(next).length === 0;
   };
 
-  // ── Handlers (lógica de backend inalterada) ────────────────────────────────
+  // ── Handlers ───────────────────────────────────────────────────────────────
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,7 +180,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
       const supabase = createClient(
         import.meta.env.VITE_SUPABASE_URL as string,
         import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-        { auth: { storage: cookieStorage } } // Aplica o cookie aqui
+        { auth: { storage: cookieStorage } } // CONFIGURAÇÃO DO COOKIE APLICADA AQUI
       );
 
       const { data: user, error: dbErr } = await supabase
@@ -229,7 +227,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
       const supabase = createClient(
         import.meta.env.VITE_SUPABASE_URL as string,
         import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-        { auth: { storage: cookieStorage } } // Aplica o cookie aqui também
+        { auth: { storage: cookieStorage } } // CONFIGURAÇÃO DO COOKIE APLICADA AQUI TAMBÉM
       );
 
       const cleanDoc = documentId.replace(/\D/g, "");
@@ -325,7 +323,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
   return (
     <div className="flex-1 flex items-center justify-center px-6 py-10 sm:px-12 lg:px-16 bg-white">
       <div className="w-full max-w-[420px]">
-        {/* Cabeçalho — produto */}
+        {/* Cabeçalho */}
         <div className="mb-10">
           <div className="flex items-center gap-2.5 mb-7">
             <div className="w-9 h-9 rounded-xl bg-neutral-900 flex items-center justify-center shadow-sm">
@@ -348,7 +346,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
           </p>
         </div>
 
-        {/* Toggle login / cadastro — segmented control refinado */}
+        {/* Toggle login / cadastro */}
         <div className="relative grid grid-cols-2 p-1 bg-neutral-100/80 rounded-xl mb-7">
           <span
             className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-lg bg-white shadow-sm ring-1 ring-neutral-200/60 transition-transform duration-200 ease-out ${
@@ -373,7 +371,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
           ))}
         </div>
 
-        {/* Mensagens de estado */}
+        {/* Mensagens */}
         {errors._success && (
           <div className="mb-5 flex items-start gap-2.5 text-[13px] text-emerald-700 bg-emerald-50 border border-emerald-200/70 rounded-lg px-3.5 py-2.5">
             <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -388,7 +386,6 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-          {/* Campos exclusivos de CADASTRO */}
           {mode === "signup" && (
             <>
               <SectionLabel>Empresa</SectionLabel>
@@ -524,7 +521,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
             />
           </Field>
 
-          {/* Lembrar-me / Esqueci senha (só no login) */}
+          {/* Esqueci senha */}
           {mode === "login" && (
             <div className="flex items-center justify-between text-[13px] pt-1">
               <label className="inline-flex items-center gap-2 text-neutral-600 cursor-pointer select-none">
@@ -547,6 +544,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
                     const supabase = createClient(
                       import.meta.env.VITE_SUPABASE_URL as string,
                       import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+                      { auth: { storage: cookieStorage } } // CONFIGURAÇÃO DO COOKIE APLICADA AQUI TAMBÉM
                     );
                     await supabase.auth.resetPasswordForEmail(email.trim(), {
                       redirectTo: `${window.location.origin}/login`,
