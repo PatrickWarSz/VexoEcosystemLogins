@@ -16,6 +16,24 @@ import {
 } from "lucide-react";
 import { THEMES, type AppKey } from "./theme";
 
+// ─── PADRÃO OFICIAL: Adaptador de Cookies ─────────────────────────────────────
+// Colocamos aqui em cima uma única vez para não poluir o código abaixo
+const cookieStorage = {
+  getItem: (key: string) => {
+    if (typeof document === 'undefined') return null;
+    const match = document.cookie.match(new RegExp('(^| )' + key + '=([^;]+)'));
+    return match ? decodeURIComponent(match[2]) : null;
+  },
+  setItem: (key: string, value: string) => {
+    if (typeof document === 'undefined') return;
+    document.cookie = `${key}=${encodeURIComponent(value)}; domain=.vexodev.com.br; path=/; max-age=31536000; SameSite=Lax; secure`;
+  },
+  removeItem: (key: string) => {
+    if (typeof document === 'undefined') return;
+    document.cookie = `${key}=; domain=.vexodev.com.br; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+  }
+};
+
 // ─── Helpers (espelho do LoginPage.tsx do Estoque) ────────────────────────────
 
 function isValidDocument(doc: string): boolean {
@@ -164,6 +182,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
       const supabase = createClient(
         import.meta.env.VITE_SUPABASE_URL as string,
         import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+        { auth: { storage: cookieStorage } } // Aplica o cookie aqui
       );
 
       const { data: user, error: dbErr } = await supabase
@@ -210,6 +229,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
       const supabase = createClient(
         import.meta.env.VITE_SUPABASE_URL as string,
         import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+        { auth: { storage: cookieStorage } } // Aplica o cookie aqui também
       );
 
       const cleanDoc = documentId.replace(/\D/g, "");
