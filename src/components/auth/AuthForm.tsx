@@ -135,6 +135,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
 
   // Campos extras de cadastro
   const [companyName, setCompanyName] = useState("");
+  const [ownerName, setOwnerName] = useState("");
   const [documentId, setDocumentId] = useState("");
   const [ownerCpf, setOwnerCpf] = useState("");
   const [phone, setPhone] = useState("");
@@ -156,6 +157,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
 
   const validateSignup = (): boolean => {
     const next: Record<string, string> = {};
+    if (!ownerName.trim()) next.ownerName = "Informe seu nome de usuário";
     if (!companyName.trim()) next.companyName = "Informe o nome da empresa";
     const cleanDoc = documentId.replace(/\D/g, "");
     if (!cleanDoc) next.documentId = "Informe o CNPJ ou CPF";
@@ -265,7 +267,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
         {
           id: authData.user?.id,
           workspace_id: workspace.id,
-          nome: "Administrador",
+          nome: ownerName.trim(),
           username: u,
           tipo: "admin",
           permissoes: {
@@ -390,6 +392,24 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
             <>
               <SectionLabel>Empresa</SectionLabel>
 
+              {/* ─── NOVO CAMPO: SEU NOME COMPLETO ─── */}
+              <Field
+                label="Seu nome completo"
+                icon={<User className="w-[15px] h-[15px]" />}
+                error={errors.ownerName}
+                ringClass={theme.ringClass}
+              >
+                <input
+                  type="text"
+                  autoComplete="name"
+                  value={ownerName}
+                  onChange={(e) => setOwnerName(e.target.value)}
+                  placeholder="Ex: João Silva"
+                  className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400"
+                  autoFocus // <--- O FOCO COMEÇA AQUI AGORA
+                />
+              </Field>
+
               <Field
                 label="Nome da empresa"
                 icon={<Building2 className="w-[15px] h-[15px]" />}
@@ -403,7 +423,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Ex: Delicatta Fit Store"
                   className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400"
-                  autoFocus
+                  // REMOVA o autoFocus daqui de dentro
                 />
               </Field>
 
