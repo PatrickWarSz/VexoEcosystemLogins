@@ -93,7 +93,6 @@ function maskDocument(value: string): string {
     .replace(/(\d{4})(\d)/, "$1-$2");
 }
 
-// Máscaras visuais
 function maskCpf(value: string): string {
   const d = value.replace(/\D/g, "").slice(0, 11);
   return d
@@ -114,7 +113,6 @@ function maskPhone(value: string): string {
     .replace(/(\d{5})(\d)/, "$1-$2");
 }
 
-// URL do produto para redirect após login/cadastro
 const PRODUCT_URLS: Record<AppKey, string> = {
   hub: "https://vexodev.com.br",
   estoque: "https://estoque.vexodev.com.br",
@@ -144,7 +142,26 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [globalError, setGlobalError] = useState<string | null>(null);
 
-  // ── Validação ──────────────────────────────────────────────────────────────
+  // ── Validação Reativa de Requisitos da Senha ────────────────────────────────
+  const passwordRequirements = {
+    length: password.length >= 8,
+    hasUpperLower: /[a-z]/.test(password) && /[A-Z]/.test(password),
+    hasNumber: /\d/.test(password),
+    hasSpecial: /[!@#$%^&*(),.?":{}|<>_+\-=\[\]\\/;`~]/.test(password),
+  };
+
+  const metRequirementsCount = Object.values(passwordRequirements).filter(Boolean).length;
+
+  const getPasswordStrength = () => {
+    if (password.length === 0) return { score: 0, label: "Em branco", color: "bg-neutral-200", text: "text-neutral-400" };
+    if (password.length < 6 || metRequirementsCount <= 1) return { score: 1, label: "Fraca", color: "bg-red-500", text: "text-red-500" };
+    if (metRequirementsCount === 2 || metRequirementsCount === 3) return { score: 2, label: "Média", color: "bg-amber-500", text: "text-amber-500" };
+    return { score: 3, label: "Forte e Segura", color: "bg-emerald-500", text: "text-emerald-600" };
+  };
+
+  const strength = getPasswordStrength();
+
+  // ── Validação de Submissão ──────────────────────────────────────────────────
 
   const validateLogin = (): boolean => {
     const next: Record<string, string> = {};
@@ -164,8 +181,14 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
     else if (!isValidDocument(cleanDoc)) next.documentId = "CNPJ/CPF inválido";
     if (!email.trim()) next.email = "Informe seu e-mail profissional";
     else if (!/^\S+@\S+\.\S+$/.test(email)) next.email = "E-mail inválido";
-    if (!password) next.password = "Informe uma senha";
-    else if (password.length < 4) next.password = "Mínimo de 4 caracteres";
+    
+    // Validação corporativa baseada no checklist de segurança
+    if (!password) {
+      next.password = "Informe uma senha";
+    } else if (metRequirementsCount < 4) {
+      next.password = "A senha não cumpre as políticas de segurança corporativa.";
+    }
+    
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -182,7 +205,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
       const supabase = createClient(
         import.meta.env.VITE_SUPABASE_URL as string,
         import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-        { auth: { storage: cookieStorage } } // CONFIGURAÇÃO DO COOKIE APLICADA AQUI
+        { auth: { storage: cookieStorage } }
       );
 
       const { data: user, error: dbErr } = await supabase
@@ -206,7 +229,11 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
       });
 
       if (authErr) {
-        setGlobalError("E-mail ou senha incorretos.");
+        // Exibe o erro descritivo real enviado pelo Supabase (ex: credenciais inválidas ou e-mail pendente)
+        const friendlyMessage = authErr.status === 400 
+          ? "E-mail ou senha incorretos." 
+          : authErr.message;
+        setGlobalError(friendlyMessage);
         setLoading(false);
         return;
       }
@@ -229,7 +256,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
       const supabase = createClient(
         import.meta.env.VITE_SUPABASE_URL as string,
         import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-        { auth: { storage: cookieStorage } } // CONFIGURAÇÃO DO COOKIE APLICADA AQUI TAMBÉM
+        { auth: { storage: cookieStorage } }
       );
 
       const cleanDoc = documentId.replace(/\D/g, "");
@@ -320,8 +347,6 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
   const docDigits = documentId.replace(/\D/g, "");
   const docValid = docDigits.length >= 11 && isValidDocument(documentId);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-
   return (
     <div className="flex-1 flex items-center justify-center px-6 py-10 sm:px-12 lg:px-16 bg-white">
       <div className="w-full max-w-[420px]">
@@ -392,7 +417,6 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
             <>
               <SectionLabel>Empresa</SectionLabel>
 
-              {/* ─── NOVO CAMPO: SEU NOME COMPLETO ─── */}
               <Field
                 label="Seu nome completo"
                 icon={<User className="w-[15px] h-[15px]" />}
@@ -406,7 +430,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
                   onChange={(e) => setOwnerName(e.target.value)}
                   placeholder="Ex: João Silva"
                   className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400"
-                  autoFocus // <--- O FOCO COMEÇA AQUI AGORA
+                  autoFocus
                 />
               </Field>
 
@@ -423,7 +447,6 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Ex: Delicatta Fit Store"
                   className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400"
-                  // REMOVA o autoFocus daqui de dentro
                 />
               </Field>
 
@@ -541,6 +564,41 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
             />
           </Field>
 
+          {/* ─── CHECKOUT DE SEGURANÇA DA SENHA (APENAS NO CADASTRO) ─── */}
+          {mode === "signup" && password.length > 0 && (
+            <div className="mt-2 p-3 bg-neutral-50/70 border border-neutral-100 rounded-xl space-y-2.5">
+              <div className="flex items-center justify-between text-[11px] font-medium">
+                <span className="text-neutral-500">Força da senha:</span>
+                <span className={strength.text}>{strength.label}</span>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-1 h-1 w-full bg-neutral-200 rounded-full overflow-hidden">
+                <div className={`h-full transition-all duration-300 ${strength.score >= 1 ? strength.color : "bg-transparent"}`} />
+                <div className={`h-full transition-all duration-300 ${strength.score >= 2 ? strength.color : "bg-transparent"}`} />
+                <div className={`h-full transition-all duration-300 ${strength.score >= 3 ? strength.color : "bg-transparent"}`} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 pt-1 text-[11px]">
+                <div className={`flex items-center gap-1.5 transition-colors ${passwordRequirements.length ? "text-emerald-600 font-medium" : "text-neutral-400"}`}>
+                  <CheckCircle2 className={`w-3.5 h-3.5 ${passwordRequirements.length ? "text-emerald-500 fill-emerald-50" : "text-neutral-300"}`} />
+                  <span>Mínimo 8 caracteres</span>
+                </div>
+                <div className={`flex items-center gap-1.5 transition-colors ${passwordRequirements.hasUpperLower ? "text-emerald-600 font-medium" : "text-neutral-400"}`}>
+                  <CheckCircle2 className={`w-3.5 h-3.5 ${passwordRequirements.hasUpperLower ? "text-emerald-500 fill-emerald-50" : "text-neutral-300"}`} />
+                  <span>Maiúsculas e minúsculas</span>
+                </div>
+                <div className={`flex items-center gap-1.5 transition-colors ${passwordRequirements.hasNumber ? "text-emerald-600 font-medium" : "text-neutral-400"}`}>
+                  <CheckCircle2 className={`w-3.5 h-3.5 ${passwordRequirements.hasNumber ? "text-emerald-500 fill-emerald-50" : "text-neutral-300"}`} />
+                  <span>Ao menos um número</span>
+                </div>
+                <div className={`flex items-center gap-1.5 transition-colors ${passwordRequirements.hasSpecial ? "text-emerald-600 font-medium" : "text-neutral-400"}`}>
+                  <CheckCircle2 className={`w-3.5 h-3.5 ${passwordRequirements.hasSpecial ? "text-emerald-500 fill-emerald-50" : "text-neutral-300"}`} />
+                  <span>Caractere especial</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Esqueci senha */}
           {mode === "login" && (
             <div className="flex items-center justify-between text-[13px] pt-1">
@@ -564,7 +622,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
                     const supabase = createClient(
                       import.meta.env.VITE_SUPABASE_URL as string,
                       import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-                      { auth: { storage: cookieStorage } } // CONFIGURAÇÃO DO COOKIE APLICADA AQUI TAMBÉM
+                      { auth: { storage: cookieStorage } }
                     );
                     await supabase.auth.resetPasswordForEmail(email.trim(), {
                       redirectTo: `${window.location.origin}/login`,
