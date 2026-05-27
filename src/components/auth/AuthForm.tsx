@@ -163,14 +163,14 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
 
   // ── Validação de Submissão ──────────────────────────────────────────────────
 
-  const validateLogin = (): boolean => {
-    const next: Record<string, string> = {};
-    if (!email.trim()) next.email = "Informe seu e-mail";
-    else if (!/^\S+@\S+\.\S+$/.test(email)) next.email = "E-mail inválido";
-    if (!password) next.password = "Informe sua senha";
-    setErrors(next);
-    return Object.keys(next).length === 0;
-  };
+const validateLogin = (): boolean => {
+  const next: Record<string, string> = {};
+  if (!email.trim()) next.email = "Informe seu usuário ou e-mail";
+  // Remove a validação de formato — aceita tanto "roberta" quanto "email@empresa.com"
+  if (!password) next.password = "Informe sua senha";
+  setErrors(next);
+  return Object.keys(next).length === 0;
+};
 
   const validateSignup = (): boolean => {
     const next: Record<string, string> = {};
@@ -521,7 +521,7 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
             ringClass={theme.ringClass}
           >
             <input
-              type="email"
+              type={mode === "signup" ? "email" : "text"} 
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
