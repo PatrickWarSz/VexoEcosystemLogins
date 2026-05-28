@@ -195,11 +195,12 @@ const validateLogin = (): boolean => {
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
-  const handleLogin = async (e: React.FormEvent) => {
+ const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setGlobalError(null);
     if (!validateLogin()) return;
     setLoading(true);
+
     try {
       const { createClient } = await import("@supabase/supabase-js");
       const supabase = createClient(
@@ -208,35 +209,31 @@ const validateLogin = (): boolean => {
         { auth: { storage: cookieStorage } }
       );
 
-      const { data: user, error: dbErr } = await supabase
-        .from("usuarios")
-        .select("*, workspaces(cnpj_cpf, status_assinatura, data_vencimento)")
-        .eq("username", email.trim().toLowerCase())
-        .single();
+      const EMPLOYEE_LOGIN_FN =
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/employee-login`;
 
-      let loginEmail = email.trim().toLowerCase();
-
-      if (!dbErr && user && user.tipo === "funcionario") {
-        const ws = Array.isArray(user.workspaces) ? user.workspaces[0] : user.workspaces;
-        if (ws?.cnpj_cpf) {
-          loginEmail = `${loginEmail}@${ws.cnpj_cpf}.vexo`;
-        }
-      }
-
-      const { error: authErr } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password,
+      const res = await fetch(EMPLOYEE_LOGIN_FN, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+        },
+        body: JSON.stringify({ login: email.trim(), password }),
       });
 
-      if (authErr) {
-        // Exibe o erro descritivo real enviado pelo Supabase (ex: credenciais inválidas ou e-mail pendente)
-        const friendlyMessage = authErr.status === 400 
-          ? "E-mail ou senha incorretos." 
-          : authErr.message;
-        setGlobalError(friendlyMessage);
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        setGlobalError(data.error ?? "E-mail/usuário ou senha incorretos.");
         setLoading(false);
         return;
       }
+
+      // Injeta sessão no cookieStorage — SSO entre subdomínios vexodev.com.br
+      await supabase.auth.setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+      });
 
       window.location.href = PRODUCT_URLS[currentApp] + "/app/estoque";
     } catch (err: unknown) {
