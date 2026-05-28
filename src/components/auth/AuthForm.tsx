@@ -17,6 +17,14 @@ import {
 import { THEMES, type AppKey } from "./theme";
 
 // ─── ADAPTADOR DE COOKIES (COMPARTILHAMENTO DE SESSÃO) ────────────────────────
+const getDomain = () => {
+  if (typeof window === 'undefined') return '';
+  const hostname = window.location.hostname;
+  // Se estiver a rodar localmente, não força o domínio para não quebrar o cookie
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return '';
+  return 'domain=.vexodev.com.br;';
+};
+
 const cookieStorage = {
   getItem: (key: string) => {
     if (typeof document === 'undefined') return null;
@@ -25,12 +33,11 @@ const cookieStorage = {
   },
   setItem: (key: string, value: string) => {
     if (typeof document === 'undefined') return;
-    // Salva no domínio base para que o estoque.vexodev.com.br possa ler
-    document.cookie = `${key}=${encodeURIComponent(value)}; domain=.vexodev.com.br; path=/; max-age=31536000; SameSite=Lax; secure`;
+    document.cookie = `${key}=${encodeURIComponent(value)}; ${getDomain()} path=/; max-age=31536000; SameSite=Lax; secure`;
   },
   removeItem: (key: string) => {
     if (typeof document === 'undefined') return;
-    document.cookie = `${key}=; domain=.vexodev.com.br; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+    document.cookie = `${key}=; ${getDomain()} path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
   }
 };
 
@@ -209,8 +216,7 @@ const validateLogin = (): boolean => {
         { auth: { storage: cookieStorage } }
       );
 
-      const EMPLOYEE_LOGIN_FN =
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/employee-login`;
+      const EMPLOYEE_LOGIN_FN = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/employee-login`;
 
       const res = await fetch(EMPLOYEE_LOGIN_FN, {
         method: "POST",
@@ -221,23 +227,42 @@ const validateLogin = (): boolean => {
         body: JSON.stringify({ login: email.trim(), password }),
       });
 
-      const data = await res.json();
+      // 1. Extraímos como texto para evitar crash se o servidor devolver HTML (Erro 500)
+      const textResponse = await res.text();
+      let data;
+      try {
+        data = JSON.parse(textResponse);
+      } catch (parseErr) {
+        throw new Error(`Falha no servidor. Resposta: ${textResponse.slice(0, 60)}...`);
+      }
 
+      // 2. Lida com o erro extraindo a mensagem real do servidor
       if (!res.ok || data.error) {
-        setGlobalError(data.error ?? "E-mail/usuário ou senha incorretos.");
-        setLoading(false);
-        return;
+        const errorMessage = data.error?.message || data.error || data.message || "E-mail/usuário ou senha incorretos.";
+        throw new Error(String(errorMessage));
+      }
+
+      // 3. Garante que apanha os tokens onde quer que eles venham (dentro de data.session ou soltos)
+      const accessToken = data.session?.access_token || data.access_token;
+      const refreshToken = data.session?.refresh_token || data.refresh_token;
+
+      if (!accessToken || !refreshToken) {
+        throw new Error("Login aprovado, mas o servidor não devolveu os tokens de acesso.");
       }
 
       // Injeta sessão no cookieStorage — SSO entre subdomínios vexodev.com.br
-      await supabase.auth.setSession({
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
       });
+
+      if (sessionError) throw new Error(sessionError.message);
 
       window.location.href = PRODUCT_URLS[currentApp] + "/app/estoque";
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erro inesperado";
+      // Agora mostrará o erro EXATO para sabermos o que está a falhar
+      console.error("Erro capturado:", err);
+      const msg = err instanceof Error ? err.message : "Erro inesperado ao realizar login.";
       setGlobalError(msg);
       setLoading(false);
     }
