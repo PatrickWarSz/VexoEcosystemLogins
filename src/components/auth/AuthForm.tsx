@@ -223,6 +223,7 @@ const validateLogin = (): boolean => {
         headers: {
           "Content-Type": "application/json",
           "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`, 
         },
         body: JSON.stringify({ login: email.trim(), password }),
       });
