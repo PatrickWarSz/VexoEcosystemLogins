@@ -274,6 +274,17 @@ const validateLogin = (): boolean => {
 
       if (sessionError) throw new Error(sessionError.message);
 
+      // Persiste e-mail se "Lembrar-me" estiver ativo
+      try {
+        if (rememberMe) {
+          localStorage.setItem("vexo:remember_email", email.trim());
+        } else {
+          localStorage.removeItem("vexo:remember_email");
+        }
+      } catch {
+        /* noop */
+      }
+
       window.location.href = PRODUCT_URLS[currentApp] + "/app/estoque";
     } catch (err: unknown) {
       // Agora mostrará o erro EXATO para sabermos o que está a falhar
