@@ -146,8 +146,23 @@ export function AuthForm({ currentApp }: { currentApp: AppKey }) {
   const [phone, setPhone] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [globalError, setGlobalError] = useState<string | null>(null);
+
+  // Carrega e-mail salvo (Lembrar-me)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("vexo:remember_email");
+      if (saved) {
+        setEmail(saved);
+        setRememberMe(true);
+      }
+    } catch {
+      /* localStorage indisponível */
+    }
+  }, []);
 
   // ── Validação Reativa de Requisitos da Senha ────────────────────────────────
   const passwordRequirements = {
