@@ -654,18 +654,33 @@ const validateLogin = (): boolean => {
               <label className="inline-flex items-center gap-2 text-neutral-600 cursor-pointer select-none">
                 <input
                   type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => {
+                    const v = e.target.checked;
+                    setRememberMe(v);
+                    if (!v) {
+                      try {
+                        localStorage.removeItem("vexo:remember_email");
+                      } catch {
+                        /* noop */
+                      }
+                    }
+                  }}
                   className="w-3.5 h-3.5 rounded border-neutral-300 text-neutral-900 focus:ring-1 focus:ring-neutral-400 focus:ring-offset-0"
                 />
                 Lembrar-me
               </label>
               <button
                 type="button"
-                className={`font-medium transition-colors ${theme.linkClass}`}
+                disabled={resetLoading}
+                className={`font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${theme.linkClass}`}
                 onClick={async () => {
-                  if (!email.trim() || !email.includes("@")) {
-                    setErrors({ email: "Digite seu e-mail para recuperar a senha" });
+                  setGlobalError(null);
+                  if (!email.trim() || !email.includes("@") || !/^\S+@\S+\.\S+$/.test(email.trim())) {
+                    setErrors({ email: "Digite um e-mail válido para recuperar a senha" });
                     return;
                   }
+                  setResetLoading(true);
                   try {
                     const { createClient } = await import("@supabase/supabase-js");
                     const supabase = createClient(
@@ -673,18 +688,22 @@ const validateLogin = (): boolean => {
                       import.meta.env.VITE_SUPABASE_ANON_KEY as string,
                       { auth: { storage: cookieStorage } }
                     );
-                    await supabase.auth.resetPasswordForEmail(email.trim(), {
-                      redirectTo: `${window.location.origin}/login`,
+                    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+                      redirectTo: `${window.location.origin}/reset-password`,
                     });
+                    if (error) throw error;
                     setErrors({
-                      _success: "E-mail de recuperação enviado! Verifique sua caixa.",
+                      _success: `E-mail de recuperação enviado para ${email.trim()}. Verifique sua caixa de entrada e spam.`,
                     });
-                  } catch {
-                    setGlobalError("Não foi possível enviar o e-mail.");
+                  } catch (err) {
+                    const msg = err instanceof Error ? err.message : "Não foi possível enviar o e-mail.";
+                    setGlobalError(msg);
+                  } finally {
+                    setResetLoading(false);
                   }
                 }}
               >
-                Esqueceu a senha?
+                {resetLoading ? "Enviando…" : "Esqueceu a senha?"}
               </button>
             </div>
           )}
