@@ -41,3 +41,20 @@ export const THEMES: Record<AppKey, {
     linkClass: "text-orange-600 hover:text-orange-700",
   },
 };
+
+// URLs de destino pós-login por aplicação
+export const PRODUCT_URLS: Record<AppKey, string> = {
+  hub: "https://vexodev.com.br",
+  estoque: "https://estoque.vexodev.com.br",
+  devolucoes: "https://devolucoes.vexodev.com.br",
+};
+
+// Domínio central de autenticação. Em dev/preview cai para a origin atual.
+export const AUTH_BASE_URL = (() => {
+  if (typeof window === "undefined") return "https://auth.vexodev.com.br";
+  const host = window.location.hostname;
+  const isProdAuth = host === "auth.vexodev.com.br";
+  const isVexoSubdomain = host.endsWith(".vexodev.com.br");
+  if (isProdAuth || isVexoSubdomain) return "https://auth.vexodev.com.br";
+  return window.location.origin; // localhost, preview lovable, etc.
+})();

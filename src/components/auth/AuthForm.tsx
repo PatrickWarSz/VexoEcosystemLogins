@@ -14,7 +14,7 @@ import {
   Loader2,
   ShieldCheck,
 } from "lucide-react";
-import { THEMES, type AppKey } from "./theme";
+import { THEMES, PRODUCT_URLS, AUTH_BASE_URL, type AppKey } from "./theme";
 
 // ─── ADAPTADOR DE COOKIES (COMPARTILHAMENTO DE SESSÃO) ────────────────────────
 const getDomain = () => {
@@ -120,11 +120,6 @@ function maskPhone(value: string): string {
     .replace(/(\d{5})(\d)/, "$1-$2");
 }
 
-const PRODUCT_URLS: Record<AppKey, string> = {
-  hub: "https://vexodev.com.br",
-  estoque: "https://estoque.vexodev.com.br",
-  devolucoes: "https://devolucoes.vexodev.com.br",
-};
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
@@ -689,7 +684,7 @@ const validateLogin = (): boolean => {
                       { auth: { storage: cookieStorage } }
                     );
                     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-                      redirectTo: `${window.location.origin}/reset-password`,
+                      redirectTo: `${AUTH_BASE_URL}/reset-password?app=${currentApp}`,
                     });
                     if (error) throw error;
                     setErrors({
