@@ -1,4 +1,4 @@
-export type AppKey = "hub" | "estoque" | "devolucoes";
+export type AppKey = "estoque" | "devolucoes";
 
 export const THEMES: Record<AppKey, {
   name: string;
@@ -10,16 +10,6 @@ export const THEMES: Record<AppKey, {
   badgeClass: string;
   linkClass: string;
 }> = {
-  hub: {
-    name: "VEXO",
-    tagline: "A plataforma que conecta sua operação",
-    description: "Um ecossistema unificado para gestão, logística e inteligência operacional.",
-    accentClass: "text-neutral-900",
-    buttonClass: "bg-neutral-900 hover:bg-neutral-800 text-white",
-    ringClass: "focus:ring-neutral-900/20 focus:border-neutral-900",
-    badgeClass: "bg-neutral-100 text-neutral-700 border-neutral-200",
-    linkClass: "text-neutral-900 hover:text-neutral-700",
-  },
   estoque: {
     name: "Estoque PRO",
     tagline: "Bem-vindo ao Estoque PRO",
@@ -44,7 +34,6 @@ export const THEMES: Record<AppKey, {
 
 // URLs de destino pós-login por aplicação
 export const PRODUCT_URLS: Record<AppKey, string> = {
-  hub: "https://vexodev.com.br",
   estoque: "https://estoque.vexodev.com.br",
   devolucoes: "https://devolucoes.vexodev.com.br",
 };
