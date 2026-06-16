@@ -280,7 +280,17 @@ const validateLogin = (): boolean => {
         /* noop */
       }
 
-      window.location.href = PRODUCT_URLS[currentApp] + "/app/estoque";
+      // Lê o parâmetro 'redirect' que o DevoluçãoPro enviou na URL
+const urlParams = new URLSearchParams(window.location.search);
+const redirectUrl = urlParams.get("redirect");
+
+if (redirectUrl) {
+  // Se veio do Devoluções (ou outro app novo), devolve pra lá!
+  window.location.href = redirectUrl;
+} else {
+  // Se não tem redirect, o fluxo padrão é abrir o estoque
+  window.location.href = PRODUCT_URLS[currentApp] + "/app/estoque";
+}
     } catch (err: unknown) {
       // Agora mostrará o erro EXATO para sabermos o que está a falhar
       console.error("Erro capturado:", err);
