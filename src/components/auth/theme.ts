@@ -31,9 +31,9 @@ export const THEMES: Record<AppKey, {
     linkClass: "text-orange-600 hover:text-orange-700",
   },
    financeiro: {
-    name: "Foco Financeiro",
-    tagline: "Bem-vindo ao Foco Financeiro",
-    description: "Controle total das suas finanças pessoais, mês a mês.",
+    name: "FocoFinanceiro",
+    tagline: "Bem-vindo ao FocoFinanceiro",
+    description: "Clareza financeira pessoal: estimado vs real, metas, dívidas e coach IA.",
     accentClass: "text-emerald-700",
     buttonClass: "bg-emerald-700 hover:bg-emerald-800 text-white",
     ringClass: "focus:ring-emerald-700/20 focus:border-emerald-700",
