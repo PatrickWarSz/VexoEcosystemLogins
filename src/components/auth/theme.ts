@@ -1,4 +1,4 @@
-export type AppKey = "estoque" | "devolucoes";
+export type AppKey = "estoque" | "devolucoes" | "financeiro";
 
 export const THEMES: Record<AppKey, {
   name: string;
@@ -30,12 +30,23 @@ export const THEMES: Record<AppKey, {
     badgeClass: "bg-orange-50 text-orange-700 border-orange-200",
     linkClass: "text-orange-600 hover:text-orange-700",
   },
+   financeiro: {
+    name: "Foco Financeiro",
+    tagline: "Bem-vindo ao Foco Financeiro",
+    description: "Controle total das suas finanças pessoais, mês a mês.",
+    accentClass: "text-emerald-700",
+    buttonClass: "bg-emerald-700 hover:bg-emerald-800 text-white",
+    ringClass: "focus:ring-emerald-700/20 focus:border-emerald-700",
+    badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    linkClass: "text-emerald-700 hover:text-emerald-800",
+  },
 };
 
 // URLs de destino pós-login por aplicação
 export const PRODUCT_URLS: Record<AppKey, string> = {
   estoque: "https://estoque.vexodev.com.br",
   devolucoes: "https://devolucoes.vexodev.com.br",
+  financeiro: "https://financeiro.vexodev.com.br",
 };
 
 // Domínio central de autenticação. Em dev/preview cai para a origin atual.
