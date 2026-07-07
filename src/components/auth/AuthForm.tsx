@@ -124,8 +124,9 @@ const PLANO_POR_APP: Record<AppKey, string> = {
   estoque: "estoque_pro",
   devolucoes: "devolucoes_pro",
   financeiro: "foco_financeiro",
+};
 
-  const POST_LOGIN_PATH: Record<AppKey, string> = {
+const POST_LOGIN_PATH: Record<AppKey, string> = {
   estoque: "/app/estoque",
   devolucoes: "/",
   financeiro: "/",
