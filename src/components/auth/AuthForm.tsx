@@ -192,7 +192,7 @@ const validateLogin = (): boolean => {
   const validateSignup = (): boolean => {
     const next: Record<string, string> = {};
     if (!ownerName.trim()) next.ownerName = "Informe seu nome de usuário";
-    if (!companyName.trim()) next.companyName = "Informe o nome da empresa";
+    if (currentApp !== "financeiro" && !companyName.trim()) next.companyName = "Informe o nome da empresa";
     const cleanDoc = documentId.replace(/\D/g, "");
     if (!cleanDoc) next.documentId = "Informe o CNPJ ou CPF";
     else if (!isValidDocument(cleanDoc)) next.documentId = "CNPJ/CPF inválido";
@@ -320,15 +320,18 @@ if (redirectUrl) {
       const trialEndDate = new Date();
       trialEndDate.setDate(trialEndDate.getDate() + 15);
 
+       const isFinanceiro = currentApp === "financeiro";
+
       const { data: workspace, error: wErr } = await supabase
         .from("workspaces")
         .insert([
           {
             cnpj_cpf: cleanDoc,
-            nome_empresa: companyName.trim(),
+             nome_empresa: isFinanceiro ? (companyName.trim() || ownerName.trim()) : companyName.trim(),
             cpf_titular: cleanCpf,
             status_assinatura: "trialing",
-            plano_atual: "estoque_pro",
+             plano_atual: isFinanceiro ? "foco_financeiro" : "estoque_pro" : "devolucoes_pro",
+             modulos_ativos: isFinanceiro ? ["foco_financeiro"] : ["estoque_pro"] : ["DEVOLUCOES_PRO"],
             data_vencimento: trialEndDate.toISOString(),
           },
         ])
@@ -351,15 +354,17 @@ if (redirectUrl) {
           nome: ownerName.trim(),
           username: u,
           tipo: "admin",
-          permissoes: {
-            estoque: true,
-            pedidos: true,
-            fornecedores: true,
-            historico: true,
-            scanner: true,
-            etiquetas: true,
-            configuracoes: true,
-          },
+          permissoes: isFinanceiro
++           ? { financeiro: true, configuracoes: true }
++           : {
++               estoque: true,
++               pedidos: true,
++               fornecedores: true,
++               historico: true,
++               scanner: true,
++               etiquetas: true,
++               configuracoes: true,
++             },
           ativo: true,
           senha_hash: "migrated_to_auth",
         },
@@ -388,7 +393,7 @@ if (redirectUrl) {
       setMode("login");
       setPassword("");
       setGlobalError(null);
-      setErrors({ _success: "Empresa criada! Faça login para continuar." });
+      setErrors({ _success: isFinanceiro ? "Conta criada! Faça login para continuar." : "Empresa criada! Faça login para continuar." });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro ao criar empresa";
       setGlobalError(msg);
@@ -418,11 +423,11 @@ if (redirectUrl) {
           </div>
 
           <h2 className="text-[28px] leading-tight font-semibold tracking-tight text-neutral-900">
-            {mode === "login" ? "Bem-vindo de volta" : "Crie seu Workspace"}
+            {mode === "login" ? "Bem-vindo de volta" : (currentApp === "financeiro" ? "Crie sua conta" : "Crie seu Workspace")}
           </h2>
           <p className="mt-2 text-[14px] text-neutral-500 leading-relaxed">
             {mode === "login"
-              ? "Acesse sua conta corporativa para continuar."
+              ? (currentApp === "financeiro" ? "Acesse sua conta para continuar." : "Acesse sua conta corporativa para continuar.")
               : "15 dias grátis. Sem cartão de crédito."}
           </p>
         </div>
@@ -469,7 +474,7 @@ if (redirectUrl) {
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           {mode === "signup" && (
             <>
-              <SectionLabel>Empresa</SectionLabel>
+               <SectionLabel>{currentApp === "financeiro" ? "Seus dados" : "Empresa"}</SectionLabel>
 
               <Field
                 label="Seu nome completo"
@@ -488,24 +493,26 @@ if (redirectUrl) {
                 />
               </Field>
 
-              <Field
-                label="Nome da empresa"
-                icon={<Building2 className="w-[15px] h-[15px]" />}
-                error={errors.companyName}
-                ringClass={theme.ringClass}
-              >
-                <input
-                  type="text"
-                  autoComplete="organization"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="Ex: Delicatta Fit Store"
-                  className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400"
-                />
-              </Field>
+              {currentApp !== "financeiro" && (
++               <Field
++                 label="Nome da empresa"
++                 icon={<Building2 className="w-[15px] h-[15px]" />}
++                 error={errors.companyName}
++                 ringClass={theme.ringClass}
++               >
++                 <input
++                   type="text"
++                   autoComplete="organization"
++                   value={companyName}
++                   onChange={(e) => setCompanyName(e.target.value)}
++                   placeholder="Ex: Delicatta Fit Store"
++                   className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400"
++                 />
++               </Field>
++             )}
 
               <Field
-                label="CNPJ ou CPF"
+                  label={currentApp === "financeiro" ? "CPF" : "CNPJ ou CPF"}
                 icon={<FileText className="w-[15px] h-[15px]" />}
                 error={errors.documentId}
                 ringClass={theme.ringClass}
@@ -523,30 +530,32 @@ if (redirectUrl) {
                   inputMode="numeric"
                   value={maskDocument(documentId)}
                   onChange={(e) =>
-                    setDocumentId(e.target.value.replace(/\D/g, "").slice(0, 14))
+                     setDocumentId(e.target.value.replace(/\D/g, "").slice(0, currentApp === "financeiro" ? 11 : 14))
                   }
-                  placeholder="00.000.000/0000-00"
+                  placeholder={currentApp === "financeiro" ? "000.000.000-00" : "00.000.000/0000-00"}
                   className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400 tabular-nums"
                 />
               </Field>
 
-              <Field
-                label="CPF do titular responsável"
-                icon={<User className="w-[15px] h-[15px]" />}
-                error={errors.ownerCpf}
-                ringClass={theme.ringClass}
-              >
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={maskCpf(ownerCpf)}
-                  onChange={(e) =>
-                    setOwnerCpf(e.target.value.replace(/\D/g, "").slice(0, 11))
-                  }
-                  placeholder="000.000.000-00"
-                  className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400 tabular-nums"
-                />
-              </Field>
+              {currentApp !== "financeiro" && (
++               <Field
++                 label="CPF do titular responsável"
++                 icon={<User className="w-[15px] h-[15px]" />}
++                 error={errors.ownerCpf}
++                 ringClass={theme.ringClass}
++               >
++                 <input
++                   type="text"
++                   inputMode="numeric"
++                   value={maskCpf(ownerCpf)}
++                   onChange={(e) =>
++                     setOwnerCpf(e.target.value.replace(/\D/g, "").slice(0, 11))
++                   }
++                   placeholder="000.000.000-00"
++                   className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400 tabular-nums"
++                 />
++               </Field>
++             )}
 
               <Field
                 label="WhatsApp do financeiro"
@@ -726,7 +735,7 @@ if (redirectUrl) {
               </>
             ) : (
               <>
-                {mode === "login" ? "Entrar" : "Criar Workspace"}
+                {mode === "login" ? "Entrar" : (currentApp === "financeiro" ? "Criar minha conta" : "Criar Workspace")}
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
