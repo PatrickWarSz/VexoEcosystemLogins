@@ -120,6 +120,11 @@ function maskPhone(value: string): string {
     .replace(/(\d{5})(\d)/, "$1-$2");
 }
 
+const PLANO_POR_APP: Record<AppKey, string> = {
+  estoque: "estoque_pro",
+  devolucoes: "devolucoes_pro",
+  financeiro: "foco_financeiro",
+};
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
@@ -329,10 +334,10 @@ if (redirectUrl) {
             cnpj_cpf: cleanDoc,
              nome_empresa: isFinanceiro ? (companyName.trim() || ownerName.trim()) : companyName.trim(),
             cpf_titular: cleanCpf,
-            status_assinatura: "trialing",
-             plano_atual: isFinanceiro ? "foco_financeiro" : "estoque_pro" : "devolucoes_pro",
-             modulos_ativos: isFinanceiro ? ["foco_financeiro"] : ["estoque_pro"] : ["DEVOLUCOES_PRO"],
-            data_vencimento: trialEndDate.toISOString(),
+             status_assinatura: "trialing",
+              plano_atual: PLANO_POR_APP[currentApp],
+              modulos_ativos: [PLANO_POR_APP[currentApp]],
+             data_vencimento: trialEndDate.toISOString(),
           },
         ])
         .select()
@@ -355,16 +360,16 @@ if (redirectUrl) {
           username: u,
           tipo: "admin",
           permissoes: isFinanceiro
-+           ? { financeiro: true, configuracoes: true }
-+           : {
-+               estoque: true,
-+               pedidos: true,
-+               fornecedores: true,
-+               historico: true,
-+               scanner: true,
-+               etiquetas: true,
-+               configuracoes: true,
-+             },
+            ? { financeiro: true, configuracoes: true }
+            : {
+                estoque: true,
+                pedidos: true,
+                fornecedores: true,
+                historico: true,
+                scanner: true,
+                etiquetas: true,
+                configuracoes: true,
+              },
           ativo: true,
           senha_hash: "migrated_to_auth",
         },
@@ -494,22 +499,22 @@ if (redirectUrl) {
               </Field>
 
               {currentApp !== "financeiro" && (
-+               <Field
-+                 label="Nome da empresa"
-+                 icon={<Building2 className="w-[15px] h-[15px]" />}
-+                 error={errors.companyName}
-+                 ringClass={theme.ringClass}
-+               >
-+                 <input
-+                   type="text"
-+                   autoComplete="organization"
-+                   value={companyName}
-+                   onChange={(e) => setCompanyName(e.target.value)}
-+                   placeholder="Ex: Delicatta Fit Store"
-+                   className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400"
-+                 />
-+               </Field>
-+             )}
+                <Field
+                  label="Nome da empresa"
+                  icon={<Building2 className="w-[15px] h-[15px]" />}
+                  error={errors.companyName}
+                  ringClass={theme.ringClass}
+                >
+                  <input
+                    type="text"
+                    autoComplete="organization"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="Ex: Delicatta Fit Store"
+                    className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400"
+                  />
+                </Field>
+              )}
 
               <Field
                   label={currentApp === "financeiro" ? "CPF" : "CNPJ ou CPF"}
@@ -538,24 +543,24 @@ if (redirectUrl) {
               </Field>
 
               {currentApp !== "financeiro" && (
-+               <Field
-+                 label="CPF do titular responsável"
-+                 icon={<User className="w-[15px] h-[15px]" />}
-+                 error={errors.ownerCpf}
-+                 ringClass={theme.ringClass}
-+               >
-+                 <input
-+                   type="text"
-+                   inputMode="numeric"
-+                   value={maskCpf(ownerCpf)}
-+                   onChange={(e) =>
-+                     setOwnerCpf(e.target.value.replace(/\D/g, "").slice(0, 11))
-+                   }
-+                   placeholder="000.000.000-00"
-+                   className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400 tabular-nums"
-+                 />
-+               </Field>
-+             )}
+                <Field
+                  label="CPF do titular responsável"
+                  icon={<User className="w-[15px] h-[15px]" />}
+                  error={errors.ownerCpf}
+                  ringClass={theme.ringClass}
+                >
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={maskCpf(ownerCpf)}
+                    onChange={(e) =>
+                      setOwnerCpf(e.target.value.replace(/\D/g, "").slice(0, 11))
+                    }
+                    placeholder="000.000.000-00"
+                    className="w-full bg-transparent outline-none text-[14px] text-neutral-900 placeholder:text-neutral-400 tabular-nums"
+                  />
+                </Field>
+              )}
 
               <Field
                 label="WhatsApp do financeiro"
