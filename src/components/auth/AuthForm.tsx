@@ -124,6 +124,11 @@ const PLANO_POR_APP: Record<AppKey, string> = {
   estoque: "estoque_pro",
   devolucoes: "devolucoes_pro",
   financeiro: "foco_financeiro",
+
+  const POST_LOGIN_PATH: Record<AppKey, string> = {
+  estoque: "/app/estoque",
+  devolucoes: "/",
+  financeiro: "/",
 };
 
 // ─── Componente principal ─────────────────────────────────────────────────────
@@ -293,8 +298,7 @@ if (redirectUrl) {
   // Se veio do Devoluções (ou outro app novo), devolve pra lá!
   window.location.href = redirectUrl;
 } else {
-  // Se não tem redirect, o fluxo padrão é abrir o estoque
-  window.location.href = PRODUCT_URLS[currentApp] + "/app/estoque";
+  window.location.href = PRODUCT_URLS[currentApp] + POST_LOGIN_PATH[currentApp];
 }
     } catch (err: unknown) {
       // Agora mostrará o erro EXATO para sabermos o que está a falhar
@@ -322,74 +326,54 @@ if (redirectUrl) {
       const cleanCpf = ownerCpf ? ownerCpf.replace(/\D/g, "") : cleanDoc;
       const u = email.trim().toLowerCase();
 
-      const trialEndDate = new Date();
-      trialEndDate.setDate(trialEndDate.getDate() + 15);
-
-       const isFinanceiro = currentApp === "financeiro";
-
-      const { data: workspace, error: wErr } = await supabase
-        .from("workspaces")
-        .insert([
-          {
-            cnpj_cpf: cleanDoc,
-             nome_empresa: isFinanceiro ? (companyName.trim() || ownerName.trim()) : companyName.trim(),
-            cpf_titular: cleanCpf,
-             status_assinatura: "trialing",
-              plano_atual: PLANO_POR_APP[currentApp],
-              modulos_ativos: [PLANO_POR_APP[currentApp]],
-             data_vencimento: trialEndDate.toISOString(),
-          },
-        ])
-        .select()
-        .single();
-
-      if (wErr) throw new Error(wErr.message);
-
+      // 1) Cria o usuário no Supabase Auth PRIMEIRO
       const { data: authData, error: authErr } = await supabase.auth.signUp({
         email: u,
         password,
       });
-
       if (authErr) throw new Error(authErr.message);
 
-      const { error: uErr } = await supabase.from("usuarios").insert([
-        {
-          id: authData.user?.id,
-          workspace_id: workspace.id,
-          nome: ownerName.trim(),
-          username: u,
-          tipo: "admin",
-          permissoes: isFinanceiro
-            ? { financeiro: true, configuracoes: true }
-            : {
-                estoque: true,
-                pedidos: true,
-                fornecedores: true,
-                historico: true,
-                scanner: true,
-                etiquetas: true,
-                configuracoes: true,
-              },
-          ativo: true,
-          senha_hash: "migrated_to_auth",
+      const accessToken = authData.session?.access_token;
+      if (!accessToken) {
+        throw new Error(
+          "Conta criada, mas a confirmação de e-mail está pendente. Verifique sua caixa de entrada e depois faça login."
+        );
+      }
+
+      // 2) Cria o workspace + usuario via Edge Function (service_role, fora do alcance da RLS do cliente)
+      const CREATE_WORKSPACE_FN = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-workspace`;
+      const cwRes = await fetch(CREATE_WORKSPACE_FN, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+          Authorization: `Bearer ${accessToken}`,
         },
-      ]);
+        body: JSON.stringify({
+          appKey: currentApp,
+          ownerName: ownerName.trim(),
+          companyName: companyName.trim(),
+          documentId: cleanDoc,
+          cpfTitular: cleanCpf,
+          phone: phone.trim() || undefined,
+        }),
+      });
+      const cwData = await cwRes.json();
+      if (!cwRes.ok || cwData.error) {
+        throw new Error(cwData.error || "Erro ao criar workspace.");
+      }
 
-      if (uErr) throw new Error(uErr.message);
-
+      // 3) Cadastro no Asaas (não-crítico — se falhar, cliente ainda consegue usar o trial)
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
         await supabase.functions.invoke("asaas-customer", {
           body: {
-            workspaceId: workspace.id,
-            companyName: companyName.trim(),
-            documentId: cleanDoc,
+            workspaceId: cwData.workspaceId,
+            companyName: cwData.companyName,
+            documentId: cwData.documentId,
             email: u,
             phone: phone.trim() || undefined,
           },
-          headers: { Authorization: `Bearer ${session?.access_token}` },
+          headers: { Authorization: `Bearer ${accessToken}` },
         });
       } catch (err) {
         console.warn("[asaas-customer] erro não-crítico:", err);
@@ -398,9 +382,14 @@ if (redirectUrl) {
       setMode("login");
       setPassword("");
       setGlobalError(null);
-      setErrors({ _success: isFinanceiro ? "Conta criada! Faça login para continuar." : "Empresa criada! Faça login para continuar." });
+      setErrors({
+        _success:
+          currentApp === "financeiro"
+            ? "Conta criada! Faça login para continuar."
+            : "Empresa criada! Faça login para continuar.",
+      });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erro ao criar empresa";
+      const msg = err instanceof Error ? err.message : "Erro ao criar conta";
       setGlobalError(msg);
     } finally {
       setLoading(false);
