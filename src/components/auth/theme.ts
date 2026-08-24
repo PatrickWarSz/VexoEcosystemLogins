@@ -1,4 +1,4 @@
-export type AppKey = "estoque" | "devolucoes" | "financeiro";
+export type AppKey = "estoque" | "devolucoes" | "financeiro" | "corte";
 
 export const THEMES: Record<AppKey, {
   name: string;
@@ -30,7 +30,7 @@ export const THEMES: Record<AppKey, {
     badgeClass: "bg-orange-50 text-orange-700 border-orange-200",
     linkClass: "text-orange-600 hover:text-orange-700",
   },
-   financeiro: {
+    financeiro: {
     name: "FocoFinanceiro",
     tagline: "Bem-vindo ao FocoFinanceiro",
     description: "Clareza financeira pessoal: estimado vs real, metas, dívidas e coach IA.",
@@ -40,6 +40,16 @@ export const THEMES: Record<AppKey, {
     badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
     linkClass: "text-emerald-700 hover:text-emerald-800",
   },
+  corte: {
+    name: "Corte & Costura PCP",
+    tagline: "Bem-vindo ao Corte & Costura",
+    description: "Planejamento e controle de produção do corte à facção, em tempo real.",
+    accentClass: "text-violet-700",
+    buttonClass: "bg-violet-700 hover:bg-violet-800 text-white",
+    ringClass: "focus:ring-violet-700/20 focus:border-violet-700",
+    badgeClass: "bg-violet-50 text-violet-700 border-violet-200",
+    linkClass: "text-violet-700 hover:text-violet-800",
+  },
 };
 
 // URLs de destino pós-login por aplicação
@@ -47,6 +57,7 @@ export const PRODUCT_URLS: Record<AppKey, string> = {
   estoque: "https://estoque.vexodev.com.br",
   devolucoes: "https://devolucoes.vexodev.com.br",
   financeiro: "https://financeiro.vexodev.com.br",
+  corte: "https://corte.vexodev.com.br",
 };
 
 // Domínio central de autenticação. Em dev/preview cai para a origin atual.

@@ -124,12 +124,14 @@ const PLANO_POR_APP: Record<AppKey, string> = {
   estoque: "estoque_pro",
   devolucoes: "devolucoes_pro",
   financeiro: "foco_financeiro",
+  corte: "corte_pcp",
 };
 
 const POST_LOGIN_PATH: Record<AppKey, string> = {
   estoque: "/app/estoque",
   devolucoes: "/",
   financeiro: "/",
+  corte: "/quadro",
 };
 
 // ─── Componente principal ─────────────────────────────────────────────────────

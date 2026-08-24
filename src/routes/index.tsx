@@ -4,6 +4,7 @@ import { z } from "zod";
 import { EstoquePanel } from "@/components/auth/EstoquePanel";
 import { DevolucoesPanel } from "@/components/auth/DevolucoesPanel";
 import { FinanceiroPanel } from "@/components/auth/FinanceiroPanel";
+import { CortePanel } from "@/components/auth/CortePanel";
 import { AuthForm } from "@/components/auth/AuthForm";
 import type { AppKey } from "@/components/auth/theme";
 
@@ -12,12 +13,13 @@ function detectAppFromHost(): AppKey {
   const host = window.location.hostname;
   if (host.includes("devolucoes")) return "devolucoes";
   if (host.includes("financeiro") || host.includes("focofin")) return "financeiro";
+  if (host.includes("corte")) return "corte";
   return "estoque";
 }
 
 const searchSchema = z.object({
   app: fallback(
-    z.enum(["estoque", "devolucoes", "financeiro"]),
+    z.enum(["estoque", "devolucoes", "financeiro", "corte"]),
     detectAppFromHost()
   ).default(detectAppFromHost()),
 });
@@ -28,7 +30,7 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "VEXO — Acesso à plataforma" },
-      { name: "description", content: "Acesse o ecossistema VEXO: Estoque PRO, Devoluções e FocoFinanceiro." },
+      { name: "description", content: "Acesse o ecossistema VEXO: Estoque PRO, Devoluções, FocoFinanceiro e Corte & Costura." },
     ],
   }),
 });
@@ -42,6 +44,7 @@ function AuthPage() {
       {currentApp === "estoque" && <EstoquePanel />}
       {currentApp === "devolucoes" && <DevolucoesPanel />}
       {currentApp === "financeiro" && <FinanceiroPanel />}
+      {currentApp === "corte" && <CortePanel />}
       <AuthForm currentApp={currentApp} />
     </div>
   );
