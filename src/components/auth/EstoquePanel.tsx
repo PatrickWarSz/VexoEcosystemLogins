@@ -75,42 +75,11 @@ export function EstoquePanel() {
           em tempo real, em todos os depósitos.
         </p>
 
-        {/* Lista de provas */}
-        <ul className="mt-6 space-y-2 text-sm text-blue-50/90">
-          {[
-            "Sincronização multi-canal em < 50ms",
-            "Auditoria contínua e logs imutáveis",
-            "Integrações nativas com seu ERP",
-          ].map((item) => (
-            <li key={item} className="flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 mt-0.5 text-cyan-200 shrink-0" />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
       </div>
 
-      {/* Card de dados (mockup) */}
-      <div className="relative z-10 grid gap-4">
-        <div className="rounded-lg bg-white/[0.06] border border-white/15 backdrop-blur-md p-4 max-w-sm shadow-[0_8px_32px_-12px_rgba(0,0,0,0.4)]">
-          <div className="flex items-center justify-between mb-3">
-            <span
-              className="text-[10px] uppercase tracking-[0.2em] text-blue-100/70"
-              style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}
-            >
-              live · warehouse_01
-            </span>
-            <span className="inline-flex items-center gap-1 text-[10px] text-emerald-200">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
-              online
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            <Metric value="99.8%" label="Acurácia" />
-            <Metric value="2.4M" label="SKUs ativos" delta="+12.4%" />
-            <Metric value="<50ms" label="Latência" />
-          </div>
-        </div>
+      {/* Demo animada do programa */}
+      <div className="relative z-10 grid gap-4 my-8">
+        <EstoqueDemo />
 
         <p
           className="text-[10px] text-blue-100/50 tracking-[0.22em] uppercase"
