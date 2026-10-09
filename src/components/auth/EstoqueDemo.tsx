@@ -253,7 +253,7 @@ export function EstoqueDemo() {
   );
 }
 
-function Overlay({ open, dark, children }: { open: boolean; dark?: boolean; children: React.ReactNode }) {
+function Overlay({ open, dark, children }: { open: boolean; dark?: boolean; children: ReactNode }) {
   return (
     <div
       className={`absolute inset-0 z-20 flex items-center justify-center transition-all duration-300 ${
@@ -332,7 +332,7 @@ function FakeQR({ size }: { size: number }) {
     }
     return false;
   };
-  const cells: React.ReactElement[] = [];
+  const cells: ReactElement[] = [];
   for (let y = 0; y < n; y++)
     for (let x = 0; x < n; x++) {
       const on = finder(x, y) ? finderOn(x, y) : ((x * 7 + y * 13 + x * y) % 5) < 2;
