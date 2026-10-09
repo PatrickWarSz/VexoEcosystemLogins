@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import { Check, MousePointer2, Plus, QrCode, ScanLine, Settings, Smartphone } from "lucide-react";
 
 /**
@@ -332,7 +332,7 @@ function FakeQR({ size }: { size: number }) {
     }
     return false;
   };
-  const cells: JSX.Element[] = [];
+  const cells: React.ReactElement[] = [];
   for (let y = 0; y < n; y++)
     for (let x = 0; x < n; x++) {
       const on = finder(x, y) ? finderOn(x, y) : ((x * 7 + y * 13 + x * y) % 5) < 2;
